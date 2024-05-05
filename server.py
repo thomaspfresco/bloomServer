@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import os, shortuuid, datetime, shutil, pickle
 
@@ -8,9 +8,6 @@ CORS(app)  # Allow requests from all origins
 UPLOAD_FOLDER = 'clients'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-def alert(msg):
-    print("\n"+msg+"\n")
-
 def findClientDir(token):
     for client in os.listdir(app.config['UPLOAD_FOLDER']):
         if (token == client.split(".")[1]):
@@ -18,6 +15,11 @@ def findClientDir(token):
     return ""
 
 #--------------------------------------------------------------------#
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 @app.route('/getToken')
 def generateToken():
     msg = request.args.get('message')
@@ -28,7 +30,7 @@ def generateToken():
         if os.path.isdir(os.path.join(app.config['UPLOAD_FOLDER'], client)):
             if (datetime.datetime.now() - datetime.datetime.strptime(client.split('.')[0],'%Y-%m-%d_%H-%M-%S') > datetime.timedelta(minutes=1)):
                 shutil.rmtree(os.path.join(app.config['UPLOAD_FOLDER'], client))
-                alert("session deleted: "+client)
+                print("session deleted: "+client)
     
     #user already has a token
     if (msg != "New user"):
@@ -38,9 +40,9 @@ def generateToken():
                 token = msg
                 try:
                     os.rename(os.path.join(app.config['UPLOAD_FOLDER'],client), os.path.join(app.config['UPLOAD_FOLDER'],datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.'+token))
-                    alert("Expire time reset with success for "+token)
+                    print("Expire time reset with success for "+token)
                 except OSError as e:
-                    alert("Error: {e}")
+                    print("Error: {e}")
                 return jsonify({"message":"Your token still valid", "token": token})
      
     token = str(shortuuid.uuid())
@@ -71,7 +73,7 @@ def uploadFiles():
     return jsonify({'message': 'Files uploaded successfully', 'file_paths': filePaths})
 
 @app.route('/save', methods=['POST'])
-def saveProject():
+def saveSession():
     clientDir = findClientDir(request.args.get('token'))
     data = request.json
     
@@ -82,11 +84,11 @@ def saveProject():
     with open(os.path.join(clientDir,'log.bin'), 'wb') as file:
         file.write(binary_data)
 
-    return jsonify({'message': 'Project saved successfully'})
+    return jsonify({'message': 'Session saved successfully'})
 
 
 @app.route('/load', methods=['GET'])
-def loadProject():
+def loadSession():
     clientDir = findClientDir(request.args.get('token'))
 
     if (os.path.exists(os.path.join(clientDir,'log.bin'))):
@@ -103,7 +105,7 @@ def loadProject():
     print(msg)
 
     # Return decoded data as JSON response
-    return jsonify({'project': msg})
+    return jsonify({'session': msg})
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
