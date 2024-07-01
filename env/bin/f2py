@@ -1,4 +1,4 @@
-#!/Users/thomasfresco/Desktop/TESE/Projeto/server/env/bin/python3
+#!/Users/thomasfresco/Desktop/BLOOM/bloomServer/env/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

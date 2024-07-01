@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import os, shortuuid, datetime, shutil, pickle
 
+from basic_pitch.inference import predict
+import pretty_midi
+
 app = Flask(__name__)
 CORS(app)  # Allow requests from all origins
 
@@ -106,6 +109,69 @@ def loadSession():
 
     # Return decoded data as JSON response
     return jsonify({'session': msg})
+
+@app.route('/basicpitch', methods=['POST'])
+def basicPitch():
+    uploaded_file = request.files['file']  # 'file' should match the key used in FormData
+    
+    clientDir = findClientDir(request.args.get('token'))
+
+    if (clientDir != ""):
+        # Process the uploaded WAV file (save it, manipulate it, etc.)
+        # Example: Save the file to disk
+        if uploaded_file:
+            file_path = os.path.join(clientDir, uploaded_file.filename)
+            uploaded_file.save(file_path)
+
+            tempo = int(request.args.get('tempo'))
+            timeBtwSteps = (60 / tempo / 4) * 1000
+
+            model_output, midi_data, note_events = predict(file_path,
+                                               midi_tempo=tempo,
+                                               minimum_note_length=timeBtwSteps)
+
+            dataGenerated = {}
+
+            compensation = 2
+
+            for instrument in midi_data.instruments:
+                instrument.pitch_bends.clear()
+                i = 0
+                for note in instrument.notes:
+                    noteInfo = {}
+                    #print(note)
+                    step = round((note.start*1000) / timeBtwSteps)
+                    if step >= 2:
+                        step -= compensation
+                    noteInfo['start'] = int(step)
+                    #print(step)
+                    duration = round((note.end*1000 - note.start*1000) / timeBtwSteps)
+                    noteInfo['duration'] = int(duration)
+                    #print(duration)
+                    octave = 0
+                    pitch = note.pitch
+                    while (pitch >= 12):
+                        pitch -= 12
+                        octave += 1
+                    noteInfo['octave'] = int(octave)
+                    noteInfo['pitch'] = int(pitch)
+                    #print(octave)
+                    #print(pitch)
+                    dataGenerated[int(i)] = noteInfo
+                    i += 1
+
+            #delete audio file
+            os.remove(file_path)
+
+            #print(dataGenerated)
+            #output_midi_path = os.path.join(clientDir, 'output.mid')
+            #midi_data.write(output_midi_path)
+
+            #return 'WAV file uploaded successfully.'
+
+            return jsonify(dataGenerated)
+
+        return 'No WAV file received.', 400
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
