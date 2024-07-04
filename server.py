@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-import os, shortuuid, datetime, shutil, pickle
+import os, shortuuid, datetime, shutil, pickle, json
 
 from basic_pitch.inference import predict
 import pretty_midi
@@ -31,7 +31,7 @@ def generateToken():
     #delete expired sessions
     for client in os.listdir(app.config['UPLOAD_FOLDER']):
         if os.path.isdir(os.path.join(app.config['UPLOAD_FOLDER'], client)):
-            if (datetime.datetime.now() - datetime.datetime.strptime(client.split('.')[0],'%Y-%m-%d_%H-%M-%S') > datetime.timedelta(minutes=1)):
+            if (datetime.datetime.now() - datetime.datetime.strptime(client.split('.')[0],'%Y-%m-%d_%H-%M-%S') > datetime.timedelta(days=1)):
                 shutil.rmtree(os.path.join(app.config['UPLOAD_FOLDER'], client))
                 print("session deleted: "+client)
     
@@ -79,6 +79,16 @@ def uploadFiles():
 def saveSession():
     clientDir = findClientDir(request.args.get('token'))
     data = request.json
+
+    #raw_data = request.data.decode('utf-8')
+
+    # Load the JSON data
+    # session = json.loads(raw_data)
+        
+    # Load the JSON data (you might need a custom deserializer here)
+    #session = json.loads(raw_data)
+        
+    print(data)  # Logs the session object
     
     # Serialize the object into bytes
     binary_data = pickle.dumps(data)
