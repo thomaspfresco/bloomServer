@@ -534,7 +534,7 @@ drumSeeds = {
     21: np.array(([0],[1],[0],[0],[0],[0])),
 }
 
-def generateDrums(data, threadResults):
+def generateDrums(data, processesResults):
     # Parameters
     octave = 0
     num_parts = 6  # 7 different drum parts
@@ -636,4 +636,4 @@ def generateDrums(data, threadResults):
         notes[len(notes)] = note
 
     #print (newRhythm)
-    threadResults.put({0: keys[0]+" major", 1: notes})
+    processesResults.put({0: keys[0]+" major", 1: notes})
