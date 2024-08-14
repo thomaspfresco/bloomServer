@@ -46,11 +46,11 @@ def basicPitch():
 
             model_output, midi_data, note_events = predict(file_path,
                                                     midi_tempo=tempo,
-                                                    onset_threshold = 0.5,
-                                                    frame_threshold = 0.3,
+                                                    onset_threshold = 0.6,
+                                                    frame_threshold = 0.4,
                                                     minimum_note_length=timeBtwSteps)
 
-            dataGenerated = {}
+            dataGenerated = {}  
 
             compensation = 2
 

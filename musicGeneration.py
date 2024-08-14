@@ -23,6 +23,14 @@ durationModels = {
 #signatures (notes/roots)
 keys = {0: 'C', 1: 'C#', 2: 'D', 3: 'D#', 4: 'E', 5: 'F', 6: 'F#', 7: 'G', 8: 'G#', 9: 'A', 10: 'A#', 11: 'B'}
 
+#2,3,4,5 chords
+durationSeeds = {
+    2: [32,16,40,24,8,56,54,50,14,4,60,30,34],
+    3: [16,24,20,16,14,32],
+    4: [16,32,8,24,14],
+    5: [16,8,4,12,32,14]
+}
+
 # major scales
 majorScales = {
     0: [0, 2, 4, 5, 7, 9, 11],
@@ -90,13 +98,17 @@ def getChordNotes(key, chordDegree, modifier):
     
     #major scale - root, (3rd), 5th, (7th)
     if chordType == 'maj':
-        if (modifier == 1): notes = [majorScales[rootIndex][0], majorScales[rootIndex][2], majorScales[rootIndex][4], majorScales[rootIndex][6]]
+        if (modifier == 1): 
+            if majorScales[rootIndex][6] in majorScales[key]: notes = [majorScales[rootIndex][0], majorScales[rootIndex][2], majorScales[rootIndex][4], majorScales[rootIndex][6]]
+            else: notes = [majorScales[rootIndex][0], majorScales[rootIndex][2], majorScales[rootIndex][4]]
         elif (modifier == 2): notes = [majorScales[rootIndex][0], majorScales[rootIndex][4]]
         else: notes = [majorScales[rootIndex][0], majorScales[rootIndex][2], majorScales[rootIndex][4]]
     
     #minor scale - root, (3rd), 5th, (7th)
     if chordType == 'min':
-        if (modifier == 1): notes = [minorScales[rootIndex][0], minorScales[rootIndex][2], minorScales[rootIndex][4], minorScales[rootIndex][6]]
+        if (modifier == 1): 
+            if minorScales[rootIndex][6] in majorScales[key]: notes = [minorScales[rootIndex][0], minorScales[rootIndex][2], minorScales[rootIndex][4], minorScales[rootIndex][6]]
+            else: notes = [minorScales[rootIndex][0], minorScales[rootIndex][2], minorScales[rootIndex][4]]
         elif (modifier == 2): notes = [minorScales[rootIndex][0], minorScales[rootIndex][4]]
         else: notes = [minorScales[rootIndex][0], minorScales[rootIndex][2], minorScales[rootIndex][4]]
     
@@ -172,16 +184,19 @@ def identifyChords(data, neutral):
     # Ensure arrays are of the same length
     if len(roots) > len(durations):
         durations.append(accumulatedDuration)
-
     
     key = punctuateKey(data, ["BASS"])
     chordProgression = []
-
     print(roots)
 
     for r in roots:
+        
         prob5th = np.random.rand()
-        if prob5th > 0.50: r = majorScales[r][4]
+        if prob5th > 0.50:
+            for i in range (len(majorScales)):
+                if majorScales[i][4] == r:
+                    r = majorScales[i][0]
+                    break
 
         chordMatch = False
         #try major
@@ -207,7 +222,8 @@ def identifyChords(data, neutral):
             chord = [majorScales[key][0], majorScales[key][2], majorScales[key][4]]
             chordProgression.append(chord)
             
-
+        if neutral:
+            chordProgression[len(chordProgression)-1].pop(1)
                 
         #chordProgression.append([majorScales[r][0], majorScales[r][2], majorScales[r][4]])
         #try minor
@@ -294,6 +310,16 @@ def punctuateKey(data, tracks):
                     keyPoints[i] += 2
                 if note["pitch"] in majorScales[i]:
                     keyPoints[i] += 1
+        
+        for i in majorScales:
+            index = -1
+            
+            for n in data[t]:
+                note = data[t][n]
+                if note not in majorScales[i]:
+                    index = i
+            
+            if index != -1: keyPoints[index] += 3
     
     #find the signature with more points
     key = 0
@@ -396,10 +422,15 @@ def generateHarmony(data, neutral):
                 chordProgression.append(getChordNotes(key, i, 2))
             else:
                 prob7th = np.random.rand()
-                if prob7th > 0.9: chordProgression.append(getChordNotes(key, i, 1))
+                if prob7th > 0.8: chordProgression.append(getChordNotes(key, i, 1))
                 else: chordProgression.append(getChordNotes(key, i, 0)) 
         
-        durations = generateDurations(durationModel, [], numChords)
+        durationProb = np.random.rand()
+        if (durationProb < 0.5): index = 0
+        elif (durationProb > 0.5 and durationProb < 0.75): index = 1
+        else: index = np.random.randint(2,len(durationSeeds[numChords])) 
+
+        durations = generateDurations(durationModel, [durationSeeds[numChords][index]], numChords)
     
     ##track has only bass or bass and melody (with or without drums)
     else:
@@ -470,11 +501,17 @@ def generateBass(data):
 
         bassLine = []
         progressionIndexes = generateChordProgression(model, [startChord], numChords)
-        for i in progressionIndexes: bassLine.append(getChordNotes(key, i, 0)[0])    
+        for i in progressionIndexes: bassLine.append(getChordNotes(key, i, 0)[0])
+
+        durationProb = np.random.rand()
+        if (durationProb < 0.5): index = 0
+        elif (durationProb > 0.5 and durationProb < 0.75): index = 1
+        else: index = np.random.randint(2,len(durationSeeds[numChords]))   
         
-        durations = generateDurations(durationModel, [], numChords)
+        durations = generateDurations(durationModel, [durationSeeds[numChords][index]], numChords)
     
     else:
+        key = punctuateKey(data, ["HARMONY"])
         roots, durations = identifyRoots(data)
         bassLine = []
 
@@ -503,7 +540,7 @@ def generateBass(data):
         durationSum += int(durations[index])
         index+=1
 
-    return {0: keys[0]+" major", 1: notes}
+    return {0: keys[key]+" major", 1: notes}
     #return {0: keys[key]+" major", 1: notes}
 
 #--------------------------------------------------------------------#
